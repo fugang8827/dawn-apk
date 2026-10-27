@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Dawn" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#08090D</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="colorPrimary">#22C55E</item>
+        <item name="colorSecondary">#60A5FA</item>
+    </style>
+</resources>
