@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>破晓 · 债务突围记账系统</title>
+  <style>
+    :root {
+      --bg-black: #000000;
+      --card-black: #0e1015;
+      --card-border: #1c1f29;
+      --text-white: #f5f7fa;
+      --text-gray: #7d8594;
+      --text-darkgray: #444a57;
+      --green-income: #10b981;
+      --green-income-glow: rgba(16, 185, 129, 0.22);
+      --red-expense: #f43f5e;
+      --red-expense-glow: rgba(244, 63, 94, 0.22);
+      --accent-ice: #60a5fa;
+      --warn-amber: #f59e0b;
+      --font-mono: "SF Pro Display", "JetBrains Mono", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background: #0d0e12;
+      color: var(--text-white);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+    }
+
+    /* 桌面端以手机外壳展示，真机/移动端自动全屏铺满 */
+    .phone-simulator {
+      width: 100%;
+      max-width: 400px;
+      height: 844px;
+      background: var(--bg-black);
+      border-radius: 44px;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.9), 0 0 0 10px #1a1c23, 0 0 0 12px #272a35;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 0; background: #000; }
+      .phone-simulator {
+        max-width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .phone-notch, .home-indicator { display: none !important; }
+    }
+
+    /* 手机顶部灵动岛 */
+    .phone-notch {
+      width: 112px;
+      height: 24px;
+      background: #000000;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 16px;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 12px;
+      border: 1px solid #14151a;
+    }
+    .phone-camera {
+      width: 8px;
+      height: 8px;
+      background: #181a24;
+      border-radius: 50%;
+    }
+
+    /* 状态栏 */
+    .status-bar {
+      height: 44px;
+      padding: 12px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #8c92a0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    /* 顶部轻提示 Toast */
+    .toast-banner {
+      position: absolute;
+      top: 50px;
+      left: 20px;
+      right: 20px;
+      background: #181b24;
+      border: 1px solid #2e3446;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.4;
+      z-index: 1000;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.75);
+      transform: translateY(-130%);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    .toast-banner.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* 页面视口 */
+    .screen-container {
+      flex: 1;
+      position: relative;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 8px 20px 88px;
+    }
+    .screen-container::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 视图切换 */
+    .view-page {
+      display: none;
+      min-height: 100%;
+      animation: fadeIn 0.18s ease;
+    }
+    .view-page.active {
+      display: flex;
+      flex-direction: column;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 顶部标题栏 */
+    .view-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      height: 38px;
+      flex-shrink: 0;
+    }
+    .header-back {
+      background: #12141c;
+      border: 1px solid #1f2330;
+      color: var(--text-white);
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 5px 10px;
+    }
+    .header-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .header-action {
+      font-size: 12px;
+      color: var(--accent-ice);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* ========== 首页：顶部品牌栏与核心双指标上下排列 ========== */
+    #view-home.active {
+      justify-content: space-between;
+      padding-top: 14px;
+      padding-bottom: 10px;
+    }
+
+    .home-brand-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0 18px;
+      border-bottom: 1px solid #12151e;
+      margin-bottom: 10px;
+    }
+    .app-brand-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .app-brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #ffffff;
+    }
+    .app-brand-sub {
+      font-size: 11px;
+      color: var(--text-gray);
+      letter-spacing: 1px;
+      font-weight: 500;
+    }
+
+    .home-hero {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      margin-top: 8px;
+      margin-bottom: 24px;
+    }
+
+    .hero-metric-block {
+      border-bottom: 1px solid #151821;
+      padding-bottom: 20px;
+    }
+
+    .hero-metric-label {
+      font-size: 12px;
+      color: var(--text-gray);
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sub-pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      background: #131620;
+      border: 1px solid #222738;
+      border-radius: 6px;
+      color: #a3adc2;
+      cursor: pointer;
+    }
+    .sub-pill:active {
+      opacity: 0.7;
+    }
+
+    .hero-metric-number {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.08;
+      color: var(--text-white);
+      word-break: break-all;
+    }
+    .hero-metric-number .unit {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-gray);
+      margin-left: 6px;
+      letter-spacing: 0;
+    }
+    .hero-metric-number.countdown span.accent {
+      color: #ffffff;
+      border-bottom: 2px solid var(--green-income);
+      padding-bottom: 2px;
+    }
+
+    .hero-metric-meta {
+      font-size: 12px;
+      color: #5b6273;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 清债优先级微提示条 */
+    .strategy-mini-bar {
+      background: #0c0e14;
+      border: 1px dashed #212636;
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 11px;
+      color: #8c96ab;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+      cursor: pointer;
+    }
+    .strategy-mini-bar b {
+      color: #e2e8f0;
+    }
+
+    /* 首页核心按键区：圆形收入 & 支出 + 长条还债 */
+    .home-button-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .circle-buttons-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 46px;
+      width: 100%;
+      padding: 6px 0;
+    }
+
+    .round-btn {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.14s ease, box-shadow 0.14s ease;
+    }
+    .round-btn:active {
+      transform: scale(0.92);
+    }
+
+    .round-btn-income {
+      background: radial-gradient(circle at 30% 30%, #22c55e, #15803d);
+      color: #ffffff;
+      box-shadow: 0 10px 28px var(--green-income-glow), inset 0 1px 1px rgba(255,255,255,0.25);
+    }
+
+    .round-btn-expense {
+      background: radial-gradient(circle at 30% 30%, #f43f5e, #be123c);
+      color: #ffffff;
+      box-shadow: 0 10px 28px var(--red-expense-glow), inset 0 1px 1px rgba(255,255,255,0.25);
+    }
+
+    .btn-repay-full {
+      width: 100%;
+      height: 54px;
+      border-radius: 16px;
+      background: #12151e;
+      color: #e2e8f0;
+      border: 1px solid #252b3d;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+    .btn-repay-full:active {
+      transform: scale(0.98);
+      background: #191d29;
+    }
+
+    /* 首页底部微型流水入口 */
+    .home-recent-bar {
+      margin-top: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 14px;
+      background: #0b0c10;
+      border: 1px solid #161821;
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--text-gray);
+      cursor: pointer;
+    }
+
+    /* ========== 统一录入表单 & 实时心理反馈条 ========== */
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .field-label {
+      font-size: 12px;
+      color: var(--text-gray);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .amount-input-box {
+      display: flex;
+      align-items: baseline;
+      border-bottom: 2px solid #242836;
+      padding: 2px 0 8px;
+    }
+    .amount-input-box:focus-within {
+      border-color: #ffffff;
+    }
+    .currency-symbol {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-gray);
+      margin-right: 8px;
+    }
+    .amount-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 38px;
+      font-weight: 800;
+      color: #ffffff;
+      width: 100%;
+      font-family: var(--font-mono);
+    }
+    .amount-input::placeholder {
+      color: #232630;
+    }
+
+    /* 实时生命时间换算提示框 */
+    .impact-preview-box {
+      font-size: 12px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      margin-top: 8px;
+      display: none;
+      line-height: 1.4;
+    }
+    .impact-preview-box.good {
+      display: block;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: #6ee7b7;
+    }
+    .impact-preview-box.bad {
+      display: block;
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: #fda4af;
+    }
+
+    /* 日期与备注辅助栏 */
+    .aux-row {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 10px;
+    }
+    .aux-input {
+      background: #101219;
+      border: 1px solid #1e2230;
+      border-radius: 10px;
+      padding: 9px 10px;
+      color: #d1d5db;
+      font-size: 12px;
+      outline: none;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    /* 分类标签胶囊 (支持点击选中、点击×删除) */
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag-chip {
+      padding: 8px 13px;
+      border-radius: 10px;
+      background: #11131a;
+      border: 1px solid #1e222e;
+      color: #b0b7c6;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tag-chip.active {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+      font-weight: 700;
+    }
+    .tag-del-x {
+      font-size: 11px;
+      opacity: 0.55;
+      padding: 0 2px;
+    }
+    .tag-del-x:hover {
+      opacity: 1;
+      color: var(--red-expense);
+    }
+    .tag-chip-add {
+      padding: 8px 13px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px dashed #353b4d;
+      color: var(--text-gray);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* 内联新增分类输入框 */
+    .inline-add-box {
+      display: none;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .inline-add-box.show {
+      display: flex;
+    }
+
+    /* 必要 / 非必要切换 */
+    .toggle-necessity {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #101218;
+      border: 1px solid #1d212d;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .toggle-btn {
+      padding: 10px;
+      border-radius: 8px;
+      background: transparent;
+      border: none;
+      color: var(--text-gray);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .toggle-btn.active.necessity-btn {
+      background: var(--green-income);
+      color: #ffffff;
+    }
+    .toggle-btn.active.luxury-btn {
+      background: var(--red-expense);
+      color: #ffffff;
+    }
+
+    .form-confirm-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    /* ========== 分析卡片公共样式 ========== */
+    .analysis-card {
+      background: #0e1016;
+      border: 1px solid #1a1e29;
+      border-radius: 16px;
+      padding: 15px 16px;
+      margin-bottom: 12px;
+    }
+    .analysis-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-gray);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .metric-big {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .trend-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+    .tag-up { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .tag-down { background: rgba(244, 63, 94, 0.15); color: #fb7185; }
+    .tag-neutral { background: rgba(255, 255, 255, 0.08); color: #9ca3af; }
+
+    /* 动态6个月柱状图 */
+    .chart-bar-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      height: 76px;
+      padding-top: 14px;
+      margin-top: 8px;
+      border-bottom: 1px solid #181b24;
+      padding-bottom: 4px;
+    }
+    .chart-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+    .bar-val-top {
+      font-size: 9px;
+      color: #6b7280;
+    }
+    .bar-rect {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      min-height: 3px;
+      transition: height 0.35s ease;
+    }
+    .chart-label {
+      font-size: 10px;
+      color: var(--text-gray);
+    }
+
+    /* 进度条比例 */
+    .ratio-bar {
+      height: 8px;
+      border-radius: 5px;
+      display: flex;
+      overflow: hidden;
+      margin: 8px 0 6px;
+      background: #1a1d26;
+    }
+
+    /* 历史流水明细条目 */
+    .tx-row {
+      background: #0f1118;
+      border: 1px solid #191d28;
+      border-radius: 12px;
+      padding: 11px 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    /* ========== 底部四大导航栏 ========== */
+    .bottom-tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 66px;
+      background: rgba(8, 9, 13, 0.96);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid #171a24;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      align-items: center;
+      z-index: 50;
+      padding: 0 4px;
+    }
+    .tab-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: transparent;
+      border: none;
+      color: var(--text-darkgray);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 8px 0;
+    }
+    .tab-nav-btn.active {
+      color: #ffffff;
+    }
+    .tab-nav-btn.active.tab-income {
+      color: var(--green-income);
+    }
+    .tab-nav-btn.active.tab-expense {
+      color: var(--red-expense);
+    }
+    .tab-icon {
+      font-size: 17px;
+    }
+
+    .home-indicator {
+      width: 125px;
+      height: 4px;
+      background: #2b2e3b;
+      border-radius: 3px;
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="phone-simulator">
+    <div class="phone-notch"><div class="phone-camera"></div></div>
+
+    <!-- 顶部动态反馈横幅 -->
+    <div class="toast-banner" id="toast-banner"></div>
+
+    <!-- 状态栏 -->
+    <div class="status-bar">
+      <span id="clock-time">09:41</span>
+      <span>破晓清债 · 离线加密</span>
+    </div>
+
+    <!-- 主屏幕内容区 -->
+    <div class="screen-container">
+
+      <!-- ================= 视图 1：极简核心首页 ================= -->
+      <div id="view-home" class="view-page active">
+        <div>
+          <!-- 顶部 App 名称与品牌留白区 -->
+          <div class="home-brand-bar">
+            <div class="app-brand-title">
+              <span class="app-brand-name">破晓</span>
+              <span class="app-brand-sub">DAWN · 清债记账</span>
+            </div>
+            <span class="sub-pill" onclick="switchView('settings')">⚙️ 债务设置</span>
+          </div>
+
+          <div class="home-hero">
+            <!-- 第一层：待还负债总额 (超大数字) -->
+            <div class="hero-metric-block">
+              <div class="hero-metric-label">
+                <span>待还负债总额 (本息合计)</span>
+                <span id="home-paid-pct" style="color:var(--green-income); font-weight:600;">已攻克 0%</span>
+              </div>
+              <div class="hero-metric-number">
+                <span id="home-total-debt">0.00</span><span class="unit">元</span>
+              </div>
+              <div class="hero-metric-meta">
+                <span id="home-interest-meta">加权年化 0% · 日息 ¥0.00</span>
+              </div>
+            </div>
+
+            <!-- 第二层：预计还清时间还有多少天 (超大数字) -->
+            <div class="hero-metric-block">
+              <div class="hero-metric-label">
+                <span>推断预计还清时间</span>
+                <span class="sub-pill" id="home-speed-pill">净结余推算</span>
+              </div>
+              <div class="hero-metric-number countdown">
+                <span class="accent" id="home-days-left">0</span><span class="unit" id="home-days-unit">天</span>
+              </div>
+              <div class="hero-metric-meta">
+                <span id="home-target-date">预计上岸日：计算中...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 智能清债策略提示条 (雪崩法/雪球法指引) -->
+          <div class="strategy-mini-bar" onclick="switchView('repay')" id="home-strategy-bar">
+            <span>❄️ 优先攻坚：<b id="strategy-target-name">暂无负债</b></span>
+            <span style="color:var(--accent-ice);">去冲减 →</span>
+          </div>
+        </div>
+
+        <!-- 下半区：核心三按钮 + 底部流水明细入口 -->
+        <div style="margin-bottom: 6px;">
+          <div class="home-button-group">
+            <div class="circle-buttons-row">
+              <button class="round-btn round-btn-income" onclick="switchView('income')">
+                收入
+              </button>
+              <button class="round-btn round-btn-expense" onclick="switchView('expense')">
+                支出
+              </button>
+            </div>
+
+            <button class="btn-repay-full" onclick="switchView('repay')">
+              💳 还债 (冲减债务本金)
+            </button>
+          </div>
+
+          <!-- 底部流水明细与纠错入口 -->
+          <div class="home-recent-bar" onclick="switchView('history')">
+            <span id="home-recent-summary">📄 账单流水明细与改错</span>
+            <span>查看全部 →</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 2：记收入 ================= -->
+      <div id="view-income" class="view-page">
+        <div class="view-header">
+          <button class="header-back" onclick="switchView('home')">← 返回</button>
+          <div class="header-title">记录收入</div>
+          <div style="width: 48px;"></div>
+        </div>
+
+        <form onsubmit="saveIncome(event)">
+          <div class="form-group">
+            <div class="field-label">
+              <span>收入金额 (精确到分)</span>
+            </div>
+            <div class="amount-input-box">
+              <span class="currency-symbol">¥</span>
+              <input type="number" step="0.01" min="0.01" id="income-amount" class="amount-input" placeholder="0.00" oninput="previewIncomeImpact()" required>
+            </div>
+            <div class="impact-preview-box good" id="income-impact-box"></div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">
+              <span>选择收入类型 (点击选中，点 × 可删除)</span>
+              <button type="button" class="header-action" onclick="toggleInlineAdd('income')">+ 新增分类</button>
+            </div>
+            <div class="tags-container" id="income-tags-list"></div>
+            <div class="inline-add-box" id="income-inline-add">
+              <input type="text" id="new-income-tag-input" class="aux-input" placeholder="输入新收入类型名称...">
+              <button type="button" class="header-back" style="background:#fff; color:#000; font-weight:700; white-space:nowrap;" onclick="confirmAddType('income')">保存</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">日期与备注 (可补记过往账目)</div>
+            <div class="aux-row">
+              <input type="date" id="income-date" class="aux-input" required>
+              <input type="text" id="income-note" class="aux-input" placeholder="选填备注 (如: 10月绩效)">
+            </div>
+          </div>
+
+          <button type="submit" class="form-confirm-btn">确认入账</button>
+        </form>
+      </div>
+
+      <!-- ================= 视图 3：记支出 ================= -->
+      <div id="view-expense" class="view-page">
+        <div class="view-header">
+          <button class="header-back" onclick="switchView('home')">← 返回</button>
+          <div class="header-title">记录支出</div>
+          <div style="width: 48px;"></div>
+        </div>
+
+        <form onsubmit="saveExpense(event)">
+          <div class="form-group">
+            <div class="field-label">支出金额 (精确到分)</div>
+            <div class="amount-input-box">
+              <span class="currency-symbol">¥</span>
+              <input type="number" step="0.01" min="0.01" id="expense-amount" class="amount-input" placeholder="0.00" oninput="previewExpenseImpact()" required>
+            </div>
+            <div class="impact-preview-box bad" id="expense-impact-box"></div>
+          </div>
+
+          <!-- 必要支出 / 非必要支出 -->
+          <div class="form-group">
+            <div class="field-label">支出必要性定性</div>
+            <div class="toggle-necessity">
+              <button type="button" class="toggle-btn active necessity-btn" id="btn-is-necessary" onclick="setNecessity(true)">
+                🟢 必要支出 (生存刚需)
+              </button>
+              <button type="button" class="toggle-btn luxury-btn" id="btn-is-luxury" onclick="setNecessity(false)">
+                🔴 非必要支出 (可选欲望)
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">
+              <span>选择支出分类 (点 × 可删除)</span>
+              <button type="button" class="header-action" onclick="toggleInlineAdd('expense')">+ 新增分类</button>
+            </div>
+            <div class="tags-container" id="expense-tags-list"></div>
+            <div class="inline-add-box" id="expense-inline-add">
+              <input type="text" id="new-expense-tag-input" class="aux-input" placeholder="输入新支出类型名称...">
+              <button type="button" class="header-back" style="background:#fff; color:#000; font-weight:700; white-space:nowrap;" onclick="confirmAddType('expense')">保存</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">日期与备注 (可补记过往账目)</div>
+            <div class="aux-row">
+              <input type="date" id="expense-date" class="aux-input" required>
+              <input type="text" id="expense-note" class="aux-input" placeholder="选填备注 (如: 超市买菜)">
+            </div>
+          </div>
+
+          <button type="submit" class="form-confirm-btn">确认支出</button>
+        </form>
+      </div>
+
+      <!-- ================= 视图 4：还债 ================= -->
+      <div id="view-repay" class="view-page">
+        <div class="view-header">
+          <button class="header-back" onclick="switchView('home')">← 返回</button>
+          <div class="header-title">偿还债务</div>
+          <div style="width: 48px;"></div>
+        </div>
+
+        <form onsubmit="saveRepay(event)">
+          <div class="form-group">
+            <div class="field-label">本次还款金额 (直接冲减本息)</div>
+            <div class="amount-input-box">
+              <span class="currency-symbol">¥</span>
+              <input type="number" step="0.01" min="0.01" id="repay-amount" class="amount-input" placeholder="0.00" oninput="previewRepayImpact()" required>
+            </div>
+            <div class="impact-preview-box good" id="repay-impact-box"></div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">
+              <span>选择要冲减的债务 (默认推荐最高息债务)</span>
+            </div>
+            <div class="tags-container" id="repay-debts-list"></div>
+          </div>
+
+          <div class="form-group">
+            <div class="field-label">还款日期与备注</div>
+            <div class="aux-row">
+              <input type="date" id="repay-date" class="aux-input" required>
+              <input type="text" id="repay-note" class="aux-input" placeholder="选填备注 (如: 提前还本金)">
+            </div>
+          </div>
+
+          <button type="submit" class="form-confirm-btn">确认冲减债务</button>
+        </form>
+      </div>
+
+      <!-- ================= 视图 5：收入专项深度分析 ================= -->
+      <div id="view-income-analysis" class="view-page">
+        <div class="view-header">
+          <div style="width: 24px;"></div>
+          <div class="header-title">收入深度分析 · 开源</div>
+          <div style="width: 24px;"></div>
+        </div>
+
+        <!-- 维度 1：近阶段(本月) vs 上月环比 & 去年同比 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>阶段收入对比 (真实账目聚合)</span>
+            <span class="trend-tag tag-up" id="inc-mom-badge">环比计算中</span>
+          </div>
+          <div class="metric-row">
+            <div>
+              <div style="font-size:11px; color:var(--text-gray);">本月总收入</div>
+              <div class="metric-big" id="inc-cur-month-val">¥0.00</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; color:var(--text-gray);">上月: <b id="inc-last-month-val" style="color:#d1d5db;">¥0.00</b></div>
+              <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">本年累计: <b id="inc-cur-year-val" style="color:#34d399;">¥0.00</b></div>
+            </div>
+          </div>
+
+          <!-- 近6个月真实动态趋势柱状图 -->
+          <div class="chart-bar-container" id="inc-6month-chart"></div>
+        </div>
+
+        <!-- 维度 2：收入来源丰富度与多样性指数 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>收入类型丰富度 (本月 vs 历史)</span>
+            <span style="font-size:11px; color:var(--green-income);" id="inc-diversity-badge">0 种来源</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-gray); margin-bottom:10px;" id="inc-diversity-comment">
+            统计各收入分类占比与副业贡献度：
+          </div>
+          <div id="inc-channel-breakdown" style="display:flex; flex-direction:column; gap:9px;"></div>
+        </div>
+
+        <!-- 维度 3：收入对债务利息的覆盖倍数 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>债务利息安全垫 (收入/月息比)</span>
+            <span class="trend-tag tag-neutral" id="inc-interest-cover-badge">-- 倍</span>
+          </div>
+          <div style="font-size:12px; line-height:1.5; color:#b0b7c6;" id="inc-health-advice"></div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 6：支出专项深度分析 ================= -->
+      <div id="view-expense-analysis" class="view-page">
+        <div class="view-header">
+          <div style="width: 24px;"></div>
+          <div class="header-title">支出深度分析 · 节流</div>
+          <div style="width: 24px;"></div>
+        </div>
+
+        <!-- 维度 1：近阶段(本月) vs 上月环比 & 去年对比 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>阶段支出对比 (真实账目聚合)</span>
+            <span class="trend-tag tag-up" id="exp-mom-badge">环比计算中</span>
+          </div>
+          <div class="metric-row">
+            <div>
+              <div style="font-size:11px; color:var(--text-gray);">本月总支出</div>
+              <div class="metric-big" id="exp-cur-month-val">¥0.00</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; color:var(--text-gray);">上月: <b id="exp-last-month-val" style="color:#d1d5db;">¥0.00</b></div>
+              <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">日均燃耗: <b id="exp-daily-burn" style="color:#fb7185;">¥0.00/天</b></div>
+            </div>
+          </div>
+
+          <!-- 近6个月真实动态支出柱状图 -->
+          <div class="chart-bar-container" id="exp-6month-chart"></div>
+        </div>
+
+        <!-- 维度 2：必要支出 vs 非必要支出深度解剖 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>必要 vs 非必要支出比例</span>
+            <span id="exp-necessity-ratio-text" style="color:var(--green-income); font-size:11px;">必要 100%</span>
+          </div>
+          <div class="ratio-bar">
+            <div id="exp-bar-nec" style="width:80%; background:var(--green-income);"></div>
+            <div id="exp-bar-lux" style="width:20%; background:var(--red-expense);"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-gray); margin-top:6px;">
+            <span>🟢 必要刚需: <b id="exp-nec-val" style="color:#fff;">¥0.00</b></span>
+            <span>🔴 非必要欲望: <b id="exp-lux-val" style="color:#fff;">¥0.00</b></span>
+          </div>
+          <div style="font-size:12px; color:#93c5fd; margin-top:10px; line-height:1.45; background:#111622; padding:8px 10px; border-radius:8px;" id="exp-cut-simulation">
+            计算中...
+          </div>
+        </div>
+
+        <!-- 维度 3：支出分类排行榜 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>支出分类占比排行 (近阶段)</span>
+          </div>
+          <div id="exp-category-rank" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 7：开源节流综合评判 ================= -->
+      <div id="view-analytics" class="view-page">
+        <div class="view-header">
+          <div style="width: 24px;"></div>
+          <div class="header-title">开源节流 · 综合评判</div>
+          <div style="width: 24px;"></div>
+        </div>
+
+        <div style="background:#0e1017; border:1px solid #1d2230; border-radius:20px; padding:20px; text-align:center; margin-bottom:14px;">
+          <div style="width:84px; height:84px; border-radius:50%; border:3px solid var(--green-income); margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:800;" id="score-val">85</div>
+          <div style="font-size:16px; font-weight:700; margin-bottom:6px;" id="score-title">评判加载中</div>
+          <div style="font-size:12px; color:var(--text-gray); line-height:1.5;" id="score-desc"></div>
+        </div>
+
+        <!-- 四维评分拆解 -->
+        <div class="analysis-card">
+          <div class="analysis-header"><span>四维评分细项拆解</span><span>满分 100</span></div>
+          <div id="score-breakdown-list" style="display:flex; flex-direction:column; gap:10px; font-size:12px;"></div>
+        </div>
+
+        <!-- 清债策略对比：雪崩法 vs 雪球法 -->
+        <div class="analysis-card">
+          <div class="analysis-header">
+            <span>清债战术建议 (基于当前多笔负债)</span>
+            <span class="trend-tag tag-up">省息最优解</span>
+          </div>
+          <div id="debt-strategy-detail" style="font-size:12px; color:#cbd5e1; line-height:1.55;"></div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 8：债务管理与数据备份 ================= -->
+      <div id="view-settings" class="view-page">
+        <div class="view-header">
+          <button class="header-back" onclick="switchView('home')">← 返回</button>
+          <div class="header-title">债务设置与数据安全</div>
+          <div style="width: 48px;"></div>
+        </div>
+
+        <div class="analysis-card">
+          <div class="analysis-header"><span>新增 / 录入一笔债务</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <input type="text" id="new-debt-name" class="aux-input" placeholder="债务名称 (如: 招行信用卡 / 房贷 / 朋友借款)">
+            <div class="aux-row">
+              <input type="number" step="0.01" id="new-debt-amount" class="aux-input" placeholder="当前待还本金(元)">
+              <input type="number" step="0.01" id="new-debt-rate" class="aux-input" placeholder="年化利率% (无息填0)">
+            </div>
+            <button type="button" class="form-confirm-btn" style="margin-top: 4px; height: 42px; font-size:14px;" onclick="addDebtItem()">+ 添加这笔债务</button>
+          </div>
+        </div>
+
+        <div class="field-label" style="margin: 12px 0 8px;">当前债务清单 (点击可直接修改本金或利率)</div>
+        <div id="settings-debts-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+
+        <!-- 数据备份与恢复 -->
+        <div class="analysis-card">
+          <div class="analysis-header"><span>本地数据备份与迁移</span></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <button type="button" class="header-back" style="padding:10px; text-align:center;" onclick="exportBackup()">📤 导出备份文件</button>
+            <label class="header-back" style="padding:10px; text-align:center; display:block;">
+              📥 导入恢复数据
+              <input type="file" accept=".json" style="display:none;" onchange="importBackup(event)">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 9：历史账单流水与纠错 ================= -->
+      <div id="view-history" class="view-page">
+        <div class="view-header">
+          <button class="header-back" onclick="switchView('home')">← 返回</button>
+          <div class="header-title">全部账单流水 (可删改)</div>
+          <div style="width: 48px;"></div>
+        </div>
+        <div id="history-tx-list"></div>
+      </div>
+
+    </div>
+
+    <!-- ========== 底部四大导航栏 ========== -->
+    <div class="bottom-tab-bar">
+      <button class="tab-nav-btn active" id="tab-btn-home" onclick="switchView('home')">
+        <span class="tab-icon">⚡️</span>
+        <span>主页</span>
+      </button>
+      <button class="tab-nav-btn tab-income" id="tab-btn-income-anal" onclick="switchView('income-analysis')">
+        <span class="tab-icon">📈</span>
+        <span>收入分析</span>
+      </button>
+      <button class="tab-nav-btn tab-expense" id="tab-btn-expense-anal" onclick="switchView('expense-analysis')">
+        <span class="tab-icon">📉</span>
+        <span>支出分析</span>
+      </button>
+      <button class="tab-nav-btn" id="tab-btn-analytics" onclick="switchView('analytics')">
+        <span class="tab-icon">🏆</span>
+        <span>开源节流分</span>
+      </button>
+    </div>
+
+    <div class="home-indicator"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "dawn_debt_tracker_v5_clean";
+
+    function getTodayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    let state = {
+      debts: [],
+      incomeTypes: ['主业薪资', '周末副业', '闲置转卖', '奖金补贴'],
+      expenseTypes: ['餐饮买菜', '房租水电', '通讯交通', '日用百货', '聚餐娱乐'],
+      selectedIncomeType: '主业薪资',
+      selectedExpenseType: '餐饮买菜',
+      isNecessaryExpense: true,
+      selectedRepayDebtId: '',
+      transactions: []
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById('toast-banner');
+      el.innerHTML = msg;
+      el.classList.add('show');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => el.classList.remove('show'), 3400);
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          state = { ...state, ...parsed };
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      // 初始化日期选择器为今天
+      const today = getTodayStr();
+      ['income-date', 'expense-date', 'repay-date'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = today;
+      });
+
+      autoAccrueInterest();
+      renderAll();
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    // 精确按自然日计算应计利息并自动滚入本金 (修复时区与半天不计息Bug)
+    function autoAccrueInterest() {
+      const todayStr = getTodayStr();
+      const todayDate = new Date(todayStr + 'T00:00:00');
+      let accruedTotal = 0;
+
+      state.debts.forEach(d => {
+        if (!d.annualRate || d.annualRate <= 0 || d.principal <= 0) {
+          d.lastCalcDate = todayStr;
+          return;
+        }
+        const lastStr = (d.lastCalcDate || todayStr).slice(0, 10);
+        const lastDate = new Date(lastStr + 'T00:00:00');
+        const diffDays = Math.floor((todayDate - lastDate) / 86400000);
+
+        if (diffDays >= 1) {
+          const dailyRate = (d.annualRate / 100) / 365;
+          const interest = Number((d.principal * dailyRate * diffDays).toFixed(2));
+          d.principal = Number((d.principal + interest).toFixed(2));
+          d.lastCalcDate = todayStr;
+          accruedTotal += interest;
+        }
+      });
+
+      saveState();
+      if (accruedTotal > 0) {
+        showToast(`📅 已自动计提近阶段利息 <b>¥${fmt(accruedTotal)}</b> 并计入待还总额`);
+      }
+    }
+
+    function fmt(n) {
+      return (Number(n) || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // 计算核心财务指标 (供全局调用)
+    function getCoreMetrics() {
+      let totalDebt = 0;
+      let totalOriginal = 0;
+      let totalDailyInterest = 0;
+      let weightedRateSum = 0;
+
+      state.debts.forEach(d => {
+        const p = Math.max(0, Number(d.principal) || 0);
+        const orig = Math.max(p, Number(d.originalPrincipal) || p);
+        const r = Math.max(0, Number(d.annualRate) || 0);
+        totalDebt += p;
+        totalOriginal += orig;
+        totalDailyInterest += (p * (r / 100)) / 365;
+        weightedRateSum += p * r;
+      });
+
+      const avgRate = totalDebt > 0 ? (weightedRateSum / totalDebt) : 0;
+
+      // 计算本月与上月净结余，算出稳健的日均还款能力
+      const now = new Date();
+      const curYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const lastD = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastYM = `${lastD.getFullYear()}-${String(lastD.getMonth() + 1).padStart(2, '0')}`;
+
+      let curInc = 0, curExp = 0, lastInc = 0, lastExp = 0;
+      state.transactions.forEach(t => {
+        if (!t.date) return;
+        if (t.date.startsWith(curYM)) {
+          if (t.type === 'income') curInc += t.amount;
+          if (t.type === 'expense') curExp += t.amount;
+        } else if (t.date.startsWith(lastYM)) {
+          if (t.type === 'income') lastInc += t.amount;
+          if (t.type === 'expense') lastExp += t.amount;
+        }
+      });
+
+      // 若本月有净结余则优先结合上月加权，保证推算既灵敏又不失真
+      const curSurplus = curInc - curExp;
+      const lastSurplus = lastInc - lastExp;
+      let estMonthlySurplus = curSurplus;
+      if (lastInc > 0 && curInc > 0) {
+        estMonthlySurplus = (curSurplus * 0.65) + (lastSurplus * 0.35);
+      } else if (curInc === 0 && lastInc > 0) {
+        estMonthlySurplus = lastSurplus;
+      }
+
+      const monthlyInterest = totalDailyInterest * 30;
+      const netMonthlyPayoff = estMonthlySurplus - monthlyInterest;
+      const netDailyPayoff = netMonthlyPayoff / 30;
+
+      return {
+        totalDebt,
+        totalOriginal,
+        totalDailyInterest,
+        avgRate,
+        curInc,
+        curExp,
+        lastInc,
+        lastExp,
+        estMonthlySurplus,
+        monthlyInterest,
+        netMonthlyPayoff,
+        netDailyPayoff
+      };
+    }
+
+    // 视图切换
+    function switchView(viewName) {
+      document.querySelectorAll('.view-page').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById('view-' + viewName);
+      if (target) target.classList.add('active');
+
+      document.getElementById('tab-btn-home').classList.toggle('active', viewName === 'home');
+      document.getElementById('tab-btn-income-anal').classList.toggle('active', viewName === 'income-analysis');
+      document.getElementById('tab-btn-expense-anal').classList.toggle('active', viewName === 'expense-analysis');
+      document.getElementById('tab-btn-analytics').classList.toggle('active', viewName === 'analytics');
+
+      // 隐藏未完成的分类输入框
+      document.querySelectorAll('.inline-add-box').forEach(b => b.classList.remove('show'));
+      document.querySelectorAll('.impact-preview-box').forEach(b => b.style.display = 'none');
+
+      if (viewName === 'home') renderAll();
+      if (viewName === 'income') renderIncomeTags();
+      if (viewName === 'expense') renderExpenseTags();
+      if (viewName === 'repay') renderRepayDebts();
+      if (viewName === 'income-analysis') renderIncomeAnalysis();
+      if (viewName === 'expense-analysis') renderExpenseAnalysis();
+      if (viewName === 'analytics') renderAnalyticsScore();
+      if (viewName === 'settings') renderSettingsDebts();
+      if (viewName === 'history') renderHistoryList();
+    }
+
+    // 渲染首页
+    function renderAll() {
+      const m = getCoreMetrics();
+
+      document.getElementById('home-total-debt').innerText = fmt(m.totalDebt);
+      document.getElementById('home-interest-meta').innerText = `加权年化 ${m.avgRate.toFixed(1)}% · 日息 ¥${m.totalDailyInterest.toFixed(2)}`;
+
+      const paidPct = m.totalOriginal > 0
+        ? Math.max(0, Math.min(100, Math.round(((m.totalOriginal - m.totalDebt) / m.totalOriginal) * 100)))
+        : 0;
+      document.getElementById('home-paid-pct').innerText = `已攻克 ${paidPct}%`;
+
+      // 最高息债务雪崩法提示
+      const strategyBar = document.getElementById('home-strategy-bar');
+      const activeDebts = state.debts.filter(d => d.principal > 0).sort((a, b) => b.annualRate - a.annualRate);
+      if (activeDebts.length > 0) {
+        const topDebt = activeDebts[0];
+        strategyBar.onclick = () => switchView('repay');
+        document.getElementById('strategy-target-name').innerText = `${topDebt.name} (年化${topDebt.annualRate}% 最高息)`;
+        state.selectedRepayDebtId = topDebt.id;
+      } else if (state.debts.length === 0) {
+        strategyBar.onclick = () => switchView('settings');
+        document.getElementById('strategy-target-name').innerText = `点击右上角「⚙️ 债务设置」录入待还债务`;
+      } else {
+        strategyBar.onclick = () => switchView('repay');
+        document.getElementById('strategy-target-name').innerText = `全部债务已清零 🎉`;
+      }
+
+      // 精确到“天”的清债推算
+      const daysEl = document.getElementById('home-days-left');
+      const unitEl = document.getElementById('home-days-unit');
+      const targetDateEl = document.getElementById('home-target-date');
+      const speedPill = document.getElementById('home-speed-pill');
+
+      if (state.debts.length === 0) {
+        daysEl.innerText = '--';
+        unitEl.innerText = '天';
+        targetDateEl.innerText = '录入第一笔债务与收入后，自动推算上岸日期';
+        speedPill.innerText = '待设置债务';
+      } else if (m.totalDebt <= 0) {
+        daysEl.innerText = '0';
+        unitEl.innerText = '天';
+        targetDateEl.innerText = '🎉 恭喜！所有债务已彻底清偿！';
+        speedPill.innerText = '已上岸';
+      } else if (m.netDailyPayoff <= 0) {
+        daysEl.innerText = '需开源节流';
+        unitEl.innerText = '';
+        targetDateEl.innerText = `当前月均结余(¥${m.estMonthlySurplus.toFixed(0)})不足以覆盖月息(¥${m.monthlyInterest.toFixed(0)})`;
+        speedPill.innerText = '赤字预警';
+      } else {
+        // 精确按日复利迭代推算所需天数
+        let simDebt = m.totalDebt;
+        const dailyRate = (m.avgRate / 100) / 365;
+        const grossDailySurplus = m.estMonthlySurplus / 30;
+        let days = 0;
+        while (simDebt > 0 && days < 36500) {
+          simDebt = simDebt * (1 + dailyRate) - grossDailySurplus;
+          days++;
+        }
+
+        daysEl.innerText = days.toLocaleString('zh-CN');
+        unitEl.innerText = '天';
+        speedPill.innerText = `日均净削债 ¥${m.netDailyPayoff.toFixed(0)}`;
+
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + days);
+        targetDateEl.innerText = `预计上岸日：${targetDate.getFullYear()}年${targetDate.getMonth() + 1}月${targetDate.getDate()}日 (约 ${(days / 30).toFixed(1)} 个月)`;
+      }
+
+      // 底部最近流水概览
+      document.getElementById('home-recent-summary').innerText = `📄 账单流水明细 (共 ${state.transactions.length} 笔 · 点击可查改)`;
+    }
+
+    // ========== 实时心理反馈：收入、支出、还债即时换算上岸天数 ==========
+    function previewIncomeImpact() {
+      const val = parseFloat(document.getElementById('income-amount').value);
+      const box = document.getElementById('income-impact-box');
+      const m = getCoreMetrics();
+      if (!val || val <= 0 || m.totalDebt <= 0) {
+        box.style.display = 'none';
+        return;
+      }
+      const dailySpeed = Math.max(10, m.netDailyPayoff);
+      const savedDays = (val / dailySpeed).toFixed(1);
+      box.style.display = 'block';
+      box.innerHTML = `⚡ 这笔收入若投入还债，可让你的上岸时间直接提前约 <b>${savedDays} 天</b>！`;
+    }
+
+    function previewExpenseImpact() {
+      const val = parseFloat(document.getElementById('expense-amount').value);
+      const box = document.getElementById('expense-impact-box');
+      const m = getCoreMetrics();
+      if (!val || val <= 0 || m.totalDebt <= 0) {
+        box.style.display = 'none';
+        return;
+      }
+      const dailySpeed = Math.max(10, m.netDailyPayoff);
+      const delayDays = (val / dailySpeed).toFixed(1);
+      box.style.display = 'block';
+      if (!state.isNecessaryExpense) {
+        box.innerHTML = `⚠️ 警惕：这笔<b>非必要消费</b>将直接推迟你 <b>${delayDays} 天</b> 的上岸时间！三思而后行。`;
+      } else {
+        box.innerHTML = `💡 生存刚需支出，相当于消耗了 <b>${delayDays} 天</b> 的净清债进度。`;
+      }
+    }
+
+    function previewRepayImpact() {
+      const val = parseFloat(document.getElementById('repay-amount').value);
+      const box = document.getElementById('repay-impact-box');
+      const m = getCoreMetrics();
+      if (!val || val <= 0 || m.totalDebt <= 0) {
+        box.style.display = 'none';
+        return;
+      }
+      const debt = state.debts.find(d => d.id === state.selectedRepayDebtId) || state.debts[0];
+      const rate = debt ? debt.annualRate : m.avgRate;
+      const savedYearlyInterest = (val * (rate / 100)).toFixed(2);
+      const dailySpeed = Math.max(10, m.netDailyPayoff);
+      const savedDays = (val / dailySpeed).toFixed(1);
+      box.style.display = 'block';
+      box.innerHTML = `🔥 痛快！冲减这笔本金将直接缩短约 <b>${savedDays} 天</b> 负债期，每年少交冤枉利息 <b>¥${savedYearlyInterest}</b>！`;
+    }
+
+    // ========== 自定义分类标签管理 (支持内联新增与删除) ==========
+    function renderIncomeTags() {
+      const container = document.getElementById('income-tags-list');
+      container.innerHTML = state.incomeTypes.map(t => `
+        <div class="tag-chip ${t === state.selectedIncomeType ? 'active' : ''}" onclick="selectIncomeType('${escapeHtml(t)}')">
+          <span>${escapeHtml(t)}</span>
+          ${state.incomeTypes.length > 1 ? `<span class="tag-del-x" onclick="deleteTag(event, 'income', '${escapeHtml(t)}')">✕</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function selectIncomeType(t) {
+      state.selectedIncomeType = t;
+      renderIncomeTags();
+    }
+
+    function renderExpenseTags() {
+      const container = document.getElementById('expense-tags-list');
+      container.innerHTML = state.expenseTypes.map(t => `
+        <div class="tag-chip ${t === state.selectedExpenseType ? 'active' : ''}" onclick="selectExpenseType('${escapeHtml(t)}')">
+          <span>${escapeHtml(t)}</span>
+          ${state.expenseTypes.length > 1 ? `<span class="tag-del-x" onclick="deleteTag(event, 'expense', '${escapeHtml(t)}')">✕</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function selectExpenseType(t) {
+      state.selectedExpenseType = t;
+      renderExpenseTags();
+    }
+
+    function toggleInlineAdd(target) {
+      const box = document.getElementById(target + '-inline-add');
+      box.classList.toggle('show');
+      if (box.classList.contains('show')) {
+        document.getElementById('new-' + target + '-tag-input').focus();
+      }
+    }
+
+    function confirmAddType(target) {
+      const input = document.getElementById('new-' + target + '-tag-input');
+      const clean = (input.value || '').trim();
+      if (!clean) return;
+
+      if (target === 'income') {
+        if (!state.incomeTypes.includes(clean)) state.incomeTypes.push(clean);
+        state.selectedIncomeType = clean;
+        renderIncomeTags();
+      } else {
+        if (!state.expenseTypes.includes(clean)) state.expenseTypes.push(clean);
+        state.selectedExpenseType = clean;
+        renderExpenseTags();
+      }
+      input.value = '';
+      document.getElementById(target + '-inline-add').classList.remove('show');
+      saveState();
+      showToast(`✅ 已永久保存新分类「<b>${escapeHtml(clean)}</b>」`);
+    }
+
+    function deleteTag(e, target, tagName) {
+      e.stopPropagation();
+      if (target === 'income') {
+        state.incomeTypes = state.incomeTypes.filter(t => t !== tagName);
+        if (state.selectedIncomeType === tagName) state.selectedIncomeType = state.incomeTypes[0] || '其他收入';
+        renderIncomeTags();
+      } else {
+        state.expenseTypes = state.expenseTypes.filter(t => t !== tagName);
+        if (state.selectedExpenseType === tagName) state.selectedExpenseType = state.expenseTypes[0] || '其他支出';
+        renderExpenseTags();
+      }
+      saveState();
+    }
+
+    function setNecessity(isNec) {
+      state.isNecessaryExpense = isNec;
+      document.getElementById('btn-is-necessary').classList.toggle('active', isNec);
+      document.getElementById('btn-is-luxury').classList.toggle('active', !isNec);
+      previewExpenseImpact();
+    }
+
+    // ========== 保存收入 / 支出 / 还债 ==========
+    function saveIncome(e) {
+      e.preventDefault();
+      const amount = Number(parseFloat(document.getElementById('income-amount').value).toFixed(2));
+      if (!amount || amount <= 0) return;
+      const date = document.getElementById('income-date').value || getTodayStr();
+      const note = document.getElementById('income-note').value.trim();
+
+      state.transactions.push({
+        id: 'tx_' + Date.now(),
+        type: 'income',
+        amount,
+        category: state.selectedIncomeType || '主业薪资',
+        date,
+        note
+      });
+
+      document.getElementById('income-amount').value = '';
+      document.getElementById('income-note').value = '';
+      saveState();
+      showToast(`📈 成功入账 <b>+¥${fmt(amount)}</b> (${state.selectedIncomeType})`);
+      switchView('home');
+    }
+
+    function saveExpense(e) {
+      e.preventDefault();
+      const amount = Number(parseFloat(document.getElementById('expense-amount').value).toFixed(2));
+      if (!amount || amount <= 0) return;
+      const date = document.getElementById('expense-date').value || getTodayStr();
+      const note = document.getElementById('expense-note').value.trim();
+
+      state.transactions.push({
+        id: 'tx_' + Date.now(),
+        type: 'expense',
+        amount,
+        category: state.selectedExpenseType || '日常支出',
+        isNecessary: state.isNecessaryExpense,
+        date,
+        note
+      });
+
+      document.getElementById('expense-amount').value = '';
+      document.getElementById('expense-note').value = '';
+      saveState();
+      showToast(`📉 已记录${state.isNecessaryExpense ? '必要' : '非必要'}支出 <b>-¥${fmt(amount)}</b>`);
+      switchView('home');
+    }
+
+    function renderRepayDebts() {
+      const container = document.getElementById('repay-debts-list');
+      if (state.debts.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-gray); font-size:12px;">暂无负债账户，请先去设置中添加</div>`;
+        return;
+      }
+      // 按年化利率从高到低排序展示
+      const sorted = [...state.debts].sort((a, b) => b.annualRate - a.annualRate);
+      container.innerHTML = sorted.map((d, idx) => `
+        <div class="tag-chip ${d.id === state.selectedRepayDebtId ? 'active' : ''}" onclick="selectRepayDebt('${d.id}')" style="width:100%; justify-content:space-between;">
+          <span>${idx === 0 && d.annualRate > 0 ? '🔥 ' : ''}${escapeHtml(d.name)} <small style="opacity:0.7;">(年化${d.annualRate}%)</small></span>
+          <b>剩 ¥${fmt(d.principal)}</b>
+        </div>
+      `).join('');
+    }
+
+    function selectRepayDebt(id) {
+      state.selectedRepayDebtId = id;
+      renderRepayDebts();
+      previewRepayImpact();
+    }
+
+    function saveRepay(e) {
+      e.preventDefault();
+      const amount = Number(parseFloat(document.getElementById('repay-amount').value).toFixed(2));
+      if (!amount || amount <= 0) return;
+      const date = document.getElementById('repay-date').value || getTodayStr();
+      const note = document.getElementById('repay-note').value.trim();
+
+      const debt = state.debts.find(d => d.id === state.selectedRepayDebtId) || state.debts[0];
+      if (!debt) return;
+
+      const actualDeducted = Math.min(debt.principal, amount);
+      debt.principal = Number(Math.max(0, debt.principal - amount).toFixed(2));
+
+      state.transactions.push({
+        id: 'tx_' + Date.now(),
+        type: 'repay',
+        amount,
+        debtId: debt.id,
+        actualDeducted,
+        category: `还债: ${debt.name}`,
+        date,
+        note
+      });
+
+      document.getElementById('repay-amount').value = '';
+      document.getElementById('repay-note').value = '';
+      saveState();
+      showToast(`🎉 成功冲减「${escapeHtml(debt.name)}」本金 <b>¥${fmt(amount)}</b>！`);
+      switchView('home');
+    }
+
+    // ========== 100% 真实动态计算：收入专项分析 ==========
+    function renderIncomeAnalysis() {
+      const now = new Date();
+      const curYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const lastMDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastYM = `${lastMDate.getFullYear()}-${String(lastMDate.getMonth() + 1).padStart(2, '0')}`;
+      const curYear = String(now.getFullYear());
+
+      let curMonthInc = 0, lastMonthInc = 0, curYearInc = 0;
+      const curMonthChannels = {};
+      const lastMonthChannels = new Set();
+
+      state.transactions.forEach(t => {
+        if (t.type !== 'income' || !t.date) return;
+        if (t.date.startsWith(curYear)) curYearInc += t.amount;
+        if (t.date.startsWith(curYM)) {
+          curMonthInc += t.amount;
+          curMonthChannels[t.category] = (curMonthChannels[t.category] || 0) + t.amount;
+        } else if (t.date.startsWith(lastYM)) {
+          lastMonthInc += t.amount;
+          lastMonthChannels.add(t.category);
+        }
+      });
+
+      document.getElementById('inc-cur-month-val').innerText = `¥${fmt(curMonthInc)}`;
+      document.getElementById('inc-last-month-val').innerText = `¥${fmt(lastMonthInc)}`;
+      document.getElementById('inc-cur-year-val').innerText = `¥${fmt(curYearInc)}`;
+
+      // 环比增长率计算
+      const momBadge = document.getElementById('inc-mom-badge');
+      if (lastMonthInc > 0) {
+        const diffPct = (((curMonthInc - lastMonthInc) / lastMonthInc) * 100).toFixed(1);
+        momBadge.className = 'trend-tag ' + (diffPct >= 0 ? 'tag-up' : 'tag-down');
+        momBadge.innerText = `${diffPct >= 0 ? '+' : ''}${diffPct}% 较上月`;
+      } else {
+        momBadge.className = 'trend-tag tag-neutral';
+        momBadge.innerText = '上月无对比基数';
+      }
+
+      // 动态生成近6个月收入趋势柱状图
+      render6MonthChart('inc-6month-chart', 'income', '#10b981', '#16382b');
+
+      // 收入渠道丰富度对比
+      const curChCount = Object.keys(curMonthChannels).length;
+      const lastChCount = lastMonthChannels.size;
+      document.getElementById('inc-diversity-badge').innerText = `本月 ${curChCount} 种渠道 (上月 ${lastChCount} 种)`;
+
+      const breakdownEl = document.getElementById('inc-channel-breakdown');
+      if (curChCount === 0) {
+        breakdownEl.innerHTML = `<div style="color:var(--text-gray); font-size:12px;">本月暂未录入收入，快去记一笔吧</div>`;
+      } else {
+        const sortedCh = Object.entries(curMonthChannels).sort((a, b) => b[1] - a[1]);
+        breakdownEl.innerHTML = sortedCh.map(([name, val]) => {
+          const pct = Math.round((val / curMonthInc) * 100);
+          return `
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                <span>${escapeHtml(name)}</span>
+                <span><b>¥${fmt(val)}</b> (${pct}%)</span>
+              </div>
+              <div class="ratio-bar" style="margin:0;"><div style="width:${pct}%; background:var(--green-income);"></div></div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 利息安全垫倍数
+      const m = getCoreMetrics();
+      const coverBadge = document.getElementById('inc-interest-cover-badge');
+      const adviceEl = document.getElementById('inc-health-advice');
+      if (m.monthlyInterest <= 0) {
+        coverBadge.innerText = '无息状态';
+        adviceEl.innerText = '当前债务无利息负担，你的每一分收入结余都能 100% 直接削减本金！';
+      } else {
+        const ratio = (curMonthInc / m.monthlyInterest).toFixed(1);
+        coverBadge.innerText = `覆盖月息 ${ratio} 倍`;
+        adviceEl.innerHTML = `本月收入可覆盖每月产生的债务利息 (<b>¥${m.monthlyInterest.toFixed(0)}</b>) 共 <b>${ratio} 倍</b>。${curChCount >= 2 ? '目前已具备多元副业增收渠道，开源势头良好！' : '当前收入来源相对单一，建议尝试开辟副业或闲置变现加速冲减本金。'}`;
+      }
+    }
+
+    // ========== 100% 真实动态计算：支出专项分析 ==========
+    function renderExpenseAnalysis() {
+      const now = new Date();
+      const curYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const lastMDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastYM = `${lastMDate.getFullYear()}-${String(lastMDate.getMonth() + 1).padStart(2, '0')}`;
+
+      let curMonthExp = 0, lastMonthExp = 0;
+      let necSum = 0, luxSum = 0;
+      const catRank = {};
+
+      state.transactions.forEach(t => {
+        if (t.type !== 'expense' || !t.date) return;
+        if (t.date.startsWith(curYM)) {
+          curMonthExp += t.amount;
+          if (t.isNecessary !== false) necSum += t.amount;
+          else luxSum += t.amount;
+          catRank[t.category] = (catRank[t.category] || 0) + t.amount;
+        } else if (t.date.startsWith(lastYM)) {
+          lastMonthExp += t.amount;
+        }
+      });
+
+      document.getElementById('exp-cur-month-val').innerText = `¥${fmt(curMonthExp)}`;
+      document.getElementById('exp-last-month-val').innerText = `¥${fmt(lastMonthExp)}`;
+      const dayOfMonth = Math.max(1, now.getDate());
+      document.getElementById('exp-daily-burn').innerText = `¥${(curMonthExp / dayOfMonth).toFixed(0)}/天`;
+
+      // 支出环比对比 (支出减少为绿色好消息，增加为红色预警)
+      const momBadge = document.getElementById('exp-mom-badge');
+      if (lastMonthExp > 0) {
+        const diffPct = (((curMonthExp - lastMonthExp) / lastMonthExp) * 100).toFixed(1);
+        const isSaved = diffPct <= 0;
+        momBadge.className = 'trend-tag ' + (isSaved ? 'tag-up' : 'tag-down');
+        momBadge.innerText = `${diffPct > 0 ? '+' : ''}${diffPct}% (${isSaved ? '节流有效' : '环比超支'})`;
+      } else {
+        momBadge.className = 'trend-tag tag-neutral';
+        momBadge.innerText = '上月无对比基数';
+      }
+
+      // 近6个月动态支出柱状图
+      render6MonthChart('exp-6month-chart', 'expense', '#f43f5e', '#3d1923');
+
+      // 必要 vs 非必要动态拆解與提前上岸模拟
+      const necRatio = curMonthExp > 0 ? Math.round((necSum / curMonthExp) * 100) : 100;
+      const luxRatio = 100 - necRatio;
+      document.getElementById('exp-necessity-ratio-text').innerText = `必要 ${necRatio}% : 非必要 ${luxRatio}%`;
+      document.getElementById('exp-bar-nec').style.width = `${necRatio}%`;
+      document.getElementById('exp-bar-lux').style.width = `${luxRatio}%`;
+      document.getElementById('exp-nec-val').innerText = `¥${fmt(necSum)}`;
+      document.getElementById('exp-lux-val').innerText = `¥${fmt(luxSum)}`;
+
+      const m = getCoreMetrics();
+      const simEl = document.getElementById('exp-cut-simulation');
+      if (luxSum <= 0) {
+        simEl.innerHTML = `👏 本月<b>0 非必要支出</b>！你的每一分花销都在刀刃上，保持这个极致自律的状态！`;
+      } else if (m.totalDebt > 0 && m.netDailyPayoff > 0) {
+        const curDays = Math.ceil(m.totalDebt / m.netDailyPayoff);
+        const newDailyPayoff = m.netDailyPayoff + (luxSum * 0.5) / 30;
+        const newDays = Math.ceil(m.totalDebt / newDailyPayoff);
+        const savedDays = Math.max(1, curDays - newDays);
+        simEl.innerHTML = `💡 <b>节流推演</b>：若将非必要支出砍半（每月省下 <b>¥${(luxSum * 0.5).toFixed(0)}</b> 用于还债），你的上岸时间将直接缩短 <b>${savedDays} 天</b>！`;
+      } else {
+        simEl.innerHTML = `⚠️ 当前非必要支出达 <b>¥${fmt(luxSum)}</b>，立即砍掉非必要消费是扭转赤字最快的方式。`;
+      }
+
+      // 分类排行
+      const rankEl = document.getElementById('exp-category-rank');
+      const sorted = Object.entries(catRank).sort((a, b) => b[1] - a[1]);
+      if (sorted.length === 0) {
+        rankEl.innerHTML = `<div style="color:var(--text-gray); font-size:12px;">本月暂无支出记录</div>`;
+      } else {
+        rankEl.innerHTML = sorted.map(([name, val]) => {
+          const pct = Math.round((val / curMonthExp) * 100);
+          return `
+            <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px solid #171a24; padding-bottom:6px;">
+              <span>${escapeHtml(name)}</span>
+              <span><b>¥${fmt(val)}</b> <span style="color:var(--text-gray);">(${pct}%)</span></span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // 通用：近6个月真实数据柱状图生成器
+    function render6MonthChart(containerId, txType, activeColor, mutedColor) {
+      const container = document.getElementById(containerId);
+      const now = new Date();
+      const months = [];
+
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = i === 0 ? '本月' : `${d.getMonth() + 1}月`;
+        months.push({ ym, label, sum: 0, isCurrent: i === 0 });
+      }
+
+      state.transactions.forEach(t => {
+        if (t.type !== txType || !t.date) return;
+        const ym = t.date.slice(0, 7);
+        const bucket = months.find(m => m.ym === ym);
+        if (bucket) bucket.sum += t.amount;
+      });
+
+      const maxVal = Math.max(...months.map(m => m.sum), 1);
+
+      container.innerHTML = months.map(m => {
+        const heightPct = Math.max(6, Math.round((m.sum / maxVal) * 100));
+        const shortNum = m.sum >= 1000 ? (m.sum / 1000).toFixed(1) + 'k' : (m.sum > 0 ? m.sum.toFixed(0) : '0');
+        return `
+          <div class="chart-col">
+            <span class="bar-val-top">${shortNum}</span>
+            <div class="bar-rect" style="height:${heightPct}%; background:${m.isCurrent ? activeColor : mutedColor};"></div>
+            <span class="chart-label" style="${m.isCurrent ? 'color:#fff; font-weight:700;' : ''}">${m.label}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ========== 开源节流四维综合评分引擎 ==========
+    function renderAnalyticsScore() {
+      const m = getCoreMetrics();
+      const now = new Date();
+      const curYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      let necSum = 0, luxSum = 0;
+      const incChannels = new Set();
+      state.transactions.forEach(t => {
+        if (!t.date || !t.date.startsWith(curYM)) return;
+        if (t.type === 'expense') {
+          if (t.isNecessary !== false) necSum += t.amount;
+          else luxSum += t.amount;
+        } else if (t.type === 'income') {
+          incChannels.add(t.category);
+        }
+      });
+
+      // 1. 储蓄结余率得分 (满分 35)
+      const saveRate = m.curInc > 0 ? Math.max(0, (m.curInc - m.curExp) / m.curInc) : 0;
+      const s1 = Math.min(35, Math.round(saveRate * 55));
+
+      // 2. 欲望克制力/必要支出占比得分 (满分 30)
+      const necRatio = m.curExp > 0 ? (necSum / m.curExp) : 1;
+      const s2 = Math.min(30, Math.round(necRatio * 34));
+
+      // 3. 收入增长与多渠道开源得分 (满分 20)
+      let s3 = Math.min(12, incChannels.size * 5);
+      if (m.lastInc > 0 && m.curInc >= m.lastInc) s3 += 8;
+      else if (m.curInc > 0) s3 += 5;
+      s3 = Math.min(20, s3);
+
+      // 4. 支出环比压降节流得分 (满分 15)
+      let s4 = 10;
+      if (m.lastExp > 0) {
+        if (m.curExp <= m.lastExp * 0.9) s4 = 15;
+        else if (m.curExp <= m.lastExp) s4 = 12;
+        else s4 = 6;
+      }
+
+      const totalScore = Math.max(25, Math.min(99, s1 + s2 + s3 + s4));
+      document.getElementById('score-val').innerText = totalScore;
+
+      const titleEl = document.getElementById('score-title');
+      const descEl = document.getElementById('score-desc');
+      if (totalScore >= 85) {
+        titleEl.innerText = '评级 S · 极速突围者';
+        descEl.innerText = '你的开源节流执行力堪称典范！非必要支出控制极严，且具备稳健结余，债务正在被快速瓦解。';
+      } else if (totalScore >= 70) {
+        titleEl.innerText = '评级 A · 稳健推进者';
+        descEl.innerText = '整体收支健康，具备持续还债能力。若能再砍掉一部分非必要消费或拓展一项副业，上岸速度将显著跃升。';
+      } else {
+        titleEl.innerText = '评级 B · 需立即收紧开支';
+        descEl.innerText = '当前结余率偏低或非必要消费占比过高，请优先砍掉非刚需支出，守住每月还债现金流底线。';
+      }
+
+      document.getElementById('score-breakdown-list').innerHTML = `
+        <div style="display:flex; justify-content:space-between;"><span>1. 结余转化率 (本月结余率 ${Math.round(saveRate * 100)}%)</span><b>${s1} / 35 分</b></div>
+        <div style="display:flex; justify-content:space-between;"><span>2. 消费克制力 (必要支出占 ${Math.round(necRatio * 100)}%)</span><b>${s2} / 30 分</b></div>
+        <div style="display:flex; justify-content:space-between;"><span>3. 开源多样性 (${incChannels.size} 种收入来源)</span><b>${s3} / 20 分</b></div>
+        <div style="display:flex; justify-content:space-between;"><span>4. 环比节流度 (对比上月支出变化)</span><b>${s4} / 15 分</b></div>
+      `;
+
+      // 清债策略对比详情
+      const activeDebts = state.debts.filter(d => d.principal > 0);
+      const stratEl = document.getElementById('debt-strategy-detail');
+      if (activeDebts.length === 0) {
+        stratEl.innerText = '当前已无待还债务！';
+      } else {
+        const byRate = [...activeDebts].sort((a, b) => b.annualRate - a.annualRate)[0];
+        const bySmallest = [...activeDebts].sort((a, b) => a.principal - b.principal)[0];
+        stratEl.innerHTML = `
+          <div>❄️ <b>雪崩法（最省利息推荐）</b>：优先集中所有结余消灭「<b>${escapeHtml(byRate.name)}</b>」(年化 ${byRate.annualRate}%)，每年可少付高额复利。</div>
+          <div style="margin-top:6px;">⛄️ <b>雪球法（最快心理激励）</b>：优先消灭余额最小的「<b>${escapeHtml(bySmallest.name)}</b>」(剩 ¥${fmt(bySmallest.principal)})，快速划掉一笔债务增强信心。</div>
+        `;
+      }
+    }
+
+    // ========== 债务设置与修改 ==========
+    function renderSettingsDebts() {
+      const container = document.getElementById('settings-debts-list');
+      if (state.debts.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-gray); font-size:12px;">暂无债务，请在上方添加</div>`;
+        return;
+      }
+      container.innerHTML = state.debts.map((d, idx) => `
+        <div class="tx-row">
+          <div>
+            <div style="font-weight:700; font-size:14px;">${escapeHtml(d.name)}</div>
+            <div style="font-size:11px; color:var(--text-gray);">年化利率 ${d.annualRate}% · 日息 ¥${((d.principal * d.annualRate / 100) / 365).toFixed(2)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800; font-size:15px;">¥${fmt(d.principal)}</div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+              <span style="font-size:11px; color:var(--accent-ice); cursor:pointer;" onclick="editDebtItem(${idx})">修改</span>
+              <span style="font-size:11px; color:var(--red-expense); cursor:pointer;" onclick="deleteDebt(${idx})">删除</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addDebtItem() {
+      const name = document.getElementById('new-debt-name').value.trim();
+      const amount = parseFloat(document.getElementById('new-debt-amount').value);
+      const rate = parseFloat(document.getElementById('new-debt-rate').value) || 0;
+
+      if (!name || isNaN(amount) || amount < 0) {
+        showToast('⚠️ 请填写完整的债务名称和待还本金');
+        return;
+      }
+
+      state.debts.push({
+        id: 'd_' + Date.now(),
+        name,
+        principal: Number(amount.toFixed(2)),
+        originalPrincipal: Number(amount.toFixed(2)),
+        annualRate: rate,
+        lastCalcDate: getTodayStr()
+      });
+
+      document.getElementById('new-debt-name').value = '';
+      document.getElementById('new-debt-amount').value = '';
+      document.getElementById('new-debt-rate').value = '';
+
+      saveState();
+      renderSettingsDebts();
+      renderAll();
+      showToast(`✅ 已添加债务「<b>${escapeHtml(name)}</b>」`);
+    }
+
+    function editDebtItem(idx) {
+      const d = state.debts[idx];
+      if (!d) return;
+      const newP = prompt(`修改「${d.name}」的当前待还本金 (元)：`, d.principal);
+      if (newP === null) return;
+      const newR = prompt(`修改「${d.name}」的年化利率 (%)：`, d.annualRate);
+      if (newR === null) return;
+
+      const pVal = parseFloat(newP);
+      const rVal = parseFloat(newR);
+      if (!isNaN(pVal) && pVal >= 0) d.principal = Number(pVal.toFixed(2));
+      if (!isNaN(rVal) && rVal >= 0) d.annualRate = rVal;
+
+      saveState();
+      renderSettingsDebts();
+      renderAll();
+      showToast(`✅ 已更新「<b>${escapeHtml(d.name)}</b>」数据`);
+    }
+
+    function deleteDebt(idx) {
+      state.debts.splice(idx, 1);
+      saveState();
+      renderSettingsDebts();
+      renderAll();
+      showToast('🗑️ 已移除该笔债务');
+    }
+
+    // ========== 历史账单流水与撤回纠错 (修复删除还款不退回本金Bug) ==========
+    function renderHistoryList() {
+      const container = document.getElementById('history-tx-list');
+      if (state.transactions.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-gray); font-size:13px; text-align:center; padding:30px 0;">暂无任何记账流水</div>`;
+        return;
+      }
+
+      const sorted = [...state.transactions].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      container.innerHTML = sorted.map(t => {
+        let color = '#fff', prefix = '-';
+        if (t.type === 'income') { color = 'var(--green-income)'; prefix = '+'; }
+        else if (t.type === 'expense') { color = 'var(--red-expense)'; prefix = '-'; }
+        else if (t.type === 'repay') { color = 'var(--accent-ice)'; prefix = '冲减 '; }
+
+        const badge = t.type === 'expense'
+          ? `<span style="font-size:10px; padding:1px 5px; border-radius:4px; background:#1c202b; color:#9ca3af; margin-left:6px;">${t.isNecessary !== false ? '必要' : '非必要'}</span>`
+          : '';
+
+        return `
+          <div class="tx-row">
+            <div>
+              <div style="font-size:13px; font-weight:600;">${escapeHtml(t.category)}${badge}</div>
+              <div style="font-size:11px; color:var(--text-gray); margin-top:2px;">${t.date} ${t.note ? '· ' + escapeHtml(t.note) : ''}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:14px; font-weight:800; color:${color};">${prefix}¥${fmt(t.amount)}</div>
+              <span style="font-size:11px; color:#6b7280; cursor:pointer;" onclick="deleteTransaction('${t.id}')">撤销删除</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteTransaction(txId) {
+      const idx = state.transactions.findIndex(t => t.id === txId);
+      if (idx === -1) return;
+      const tx = state.transactions[idx];
+
+      // 如果是还债记录被撤销，自动将冲减掉的本金退回原债务账户
+      if (tx.type === 'repay' && tx.debtId) {
+        const debt = state.debts.find(d => d.id === tx.debtId);
+        if (debt) {
+          const restoreAmt = tx.actualDeducted !== undefined ? tx.actualDeducted : tx.amount;
+          debt.principal = Number((debt.principal + restoreAmt).toFixed(2));
+        }
+      }
+
+      state.transactions.splice(idx, 1);
+      saveState();
+      renderHistoryList();
+      renderAll();
+      showToast('↩️ 已撤销该笔记录，相关数据已同步回滚');
+    }
+
+    // ========== 数据导出备份与导入恢复 ==========
+    function exportBackup() {
+      const dataStr = JSON.stringify(state, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `破晓清债备份_${getTodayStr()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('📤 备份文件已导出下载');
+    }
+
+    function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && Array.isArray(imported.debts) && Array.isArray(imported.transactions)) {
+            state = imported;
+            saveState();
+            renderSettingsDebts();
+            renderAll();
+            showToast('✅ 数据恢复成功！');
+          } else {
+            showToast('⚠️ 备份文件格式不正确');
+          }
+        } catch (err) {
+          showToast('⚠️ 文件解析失败');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    window.addEventListener('DOMContentLoaded', loadState);
+  </script>
+</body>
+</html>
